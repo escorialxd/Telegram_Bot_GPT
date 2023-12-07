@@ -21,17 +21,11 @@ from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicato
 from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
 
-import telebot
-from telebot.apihelper import ApiTelegramException
-from telebot import types
-
 
 class ChatGPTTelegramBot:
     """
     Class representing a ChatGPT Telegram Bot.
     """
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    bot=telebot.TeleBot(token)
 
     def __init__(self, config: dict, openai: OpenAIHelper):
         """
@@ -50,7 +44,8 @@ class ChatGPTTelegramBot:
         ]
         # If imaging is enabled, add the "image" command to the list
         if self.config.get('enable_image_generation', False):
-            self.commands.append(BotCommand(command='image', description=localized_text('image_description', bot_language)))
+            self.commands.append(
+                BotCommand(command='image', description=localized_text('image_description', bot_language)))
 
         if self.config.get('enable_tts_generation', False):
             self.commands.append(BotCommand(command='tts', description=localized_text('tts_description', bot_language)))
@@ -110,14 +105,14 @@ class ChatGPTTelegramBot:
         chat_messages, chat_token_length = self.openai.get_conversation_stats(chat_id)
         remaining_budget = get_remaining_budget(self.config, self.usage, update)
         bot_language = self.config['bot_language']
-        
+
         text_current_conversation = (
             f"*{localized_text('stats_conversation', bot_language)[0]}*:\n"
             f"{chat_messages} {localized_text('stats_conversation', bot_language)[1]}\n"
             f"{chat_token_length} {localized_text('stats_conversation', bot_language)[2]}\n"
             f"----------------------------\n"
         )
-        
+
         # Check if image generation is enabled and, if so, generate the image statistics for today
         text_today_images = ""
         if self.config.get('enable_image_generation', False):
@@ -126,7 +121,7 @@ class ChatGPTTelegramBot:
         text_today_tts = ""
         if self.config.get('enable_tts_generation', False):
             text_today_tts = f"{characters_today} {localized_text('stats_tts', bot_language)}\n"
-        
+
         text_today = (
             f"*{localized_text('usage_today', bot_language)}:*\n"
             f"{tokens_today} {localized_text('stats_tokens', bot_language)}\n"
@@ -137,7 +132,7 @@ class ChatGPTTelegramBot:
             f"{localized_text('stats_total', bot_language)}{current_cost['cost_today']:.2f}\n"
             f"----------------------------\n"
         )
-        
+
         text_month_images = ""
         if self.config.get('enable_image_generation', False):
             text_month_images = f"{images_month} {localized_text('stats_images', bot_language)}\n"
@@ -145,7 +140,7 @@ class ChatGPTTelegramBot:
         text_month_tts = ""
         if self.config.get('enable_tts_generation', False):
             text_month_tts = f"{characters_month} {localized_text('stats_tts', bot_language)}\n"
-        
+
         # Check if image generation is enabled and, if so, generate the image statistics for the month
         text_month = (
             f"*{localized_text('usage_month', bot_language)}:*\n"
@@ -259,7 +254,8 @@ class ChatGPTTelegramBot:
                         document=image_url
                     )
                 else:
-                    raise Exception(f"env variable IMAGE_RECEIVE_MODE has invalid value {self.config['image_receive_mode']}")
+                    raise Exception(
+                        f"env variable IMAGE_RECEIVE_MODE has invalid value {self.config['image_receive_mode']}")
                 # add image request to users usage tracker
                 user_id = update.message.from_user.id
                 self.usage[user_id].add_image_request(image_size, self.config['image_prices'])
@@ -311,7 +307,8 @@ class ChatGPTTelegramBot:
                 self.usage[user_id].add_tts_request(text_length, self.config['tts_model'], self.config['tts_prices'])
                 # add guest chat request to guest usage tracker
                 if str(user_id) not in self.config['allowed_user_ids'].split(',') and 'guests' in self.usage:
-                    self.usage["guests"].add_tts_request(text_length, self.config['tts_model'], self.config['tts_prices'])
+                    self.usage["guests"].add_tts_request(text_length, self.config['tts_model'],
+                                                         self.config['tts_prices'])
 
             except Exception as e:
                 logging.exception(e)
@@ -668,6 +665,11 @@ class ChatGPTTelegramBot:
         loading_tr = localized_text("loading", bot_language)
 
         try:
+            # service handlers
+            if callback_data == 'verify_sub':
+                print("SWWD")
+
+            # handlers for gpt
             if callback_data.startswith(callback_data_suffix):
                 unique_id = callback_data.split(':')[1]
                 total_tokens = 0
@@ -857,8 +859,7 @@ class ChatGPTTelegramBot:
             .concurrent_updates(True) \
             .build()
 
-
-        application.add_handler(CommandHandler('start', self.start)) 
+        application.add_handler(CommandHandler('start', self.start))
         application.add_handler(CommandHandler('reset', self.reset))
         application.add_handler(CommandHandler('help', self.help))
         application.add_handler(CommandHandler('image', self.image))
@@ -882,15 +883,14 @@ class ChatGPTTelegramBot:
 
         application.run_polling()
 
-    async def start(self, update, context): 
-        """ 
-        Handles the /start command 
-        """ 
-        message = update.message 
-        await context.bot.send_message(message.chat_id, 'Привет')
-        markup = types.InlineKeyboardMarkup()
-        button2 = types.InlineKeyboardButton('Канал моего автора:', url='https://t.me/bodycoach_school')
-        button3 = types.InlineKeyboardButton('Я подписан', callback_data="user")
-        markup.add(button2, button3)
-        await context.bot.send_message(message.chat_id, 'Подпишитесь на канал моего автора', reply_markup=markup.to_dict())
-    
+    async def start(self, update, context):
+        """ Handles the /start command """
+
+        keyboard = [
+            [
+                InlineKeyboardButton("Канал моего создателя", callback_data="1"),
+                InlineKeyboardButton("Я подписан", callback_data="verify_sub"),
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await context.bot.send_message(update.message.chat_id, 'Привет', reply_markup=reply_markup)
