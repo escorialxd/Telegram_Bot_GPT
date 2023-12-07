@@ -21,11 +21,17 @@ from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicato
 from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
 
+import telebot
+from telebot.apihelper import ApiTelegramException
+from telebot import types
+
 
 class ChatGPTTelegramBot:
     """
     Class representing a ChatGPT Telegram Bot.
     """
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    bot=telebot.TeleBot(token)
 
     def __init__(self, config: dict, openai: OpenAIHelper):
         """
@@ -851,11 +857,12 @@ class ChatGPTTelegramBot:
             .concurrent_updates(True) \
             .build()
 
+
+        application.add_handler(CommandHandler('start', self.start)) 
         application.add_handler(CommandHandler('reset', self.reset))
         application.add_handler(CommandHandler('help', self.help))
         application.add_handler(CommandHandler('image', self.image))
         application.add_handler(CommandHandler('tts', self.tts))
-        application.add_handler(CommandHandler('start', self.help))
         application.add_handler(CommandHandler('stats', self.stats))
         application.add_handler(CommandHandler('resend', self.resend))
         application.add_handler(CommandHandler(
@@ -874,3 +881,16 @@ class ChatGPTTelegramBot:
         application.add_error_handler(error_handler)
 
         application.run_polling()
+
+    async def start(self, update, context): 
+        """ 
+        Handles the /start command 
+        """ 
+        message = update.message 
+        await context.bot.send_message(message.chat_id, 'Привет')
+        markup = types.InlineKeyboardMarkup()
+        button2 = types.InlineKeyboardButton('Канал моего автора:', url='https://t.me/bodycoach_school')
+        button3 = types.InlineKeyboardButton('Я подписан', callback_data="user")
+        markup.add(button2, button3)
+        await context.bot.send_message(message.chat_id, 'Подпишитесь на канал моего автора', reply_markup=markup.to_dict())
+    
